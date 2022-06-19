@@ -1,9 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-setup.cfg
-src/django-queryset-feeler/__init__.py
-src/django_queryset_feeler.egg-info/PKG-INFO
-src/django_queryset_feeler.egg-info/SOURCES.txt
-src/django_queryset_feeler.egg-info/dependency_links.txt
-src/django_queryset_feeler.egg-info/top_level.txt
