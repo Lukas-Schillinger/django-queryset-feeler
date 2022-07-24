@@ -59,7 +59,7 @@ def pizza_list(request):
     {% endfor %}
     </tr>
     <tr>
-    {% with last=pizza.toppings|dictsort:'archived'|last %}
+    {% with last=pizza.toppings|dictsort:'vegetarian'|last %}
         {% if last.vegetarian %}
             🌱
         {% else %}
