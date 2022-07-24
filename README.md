@@ -2,205 +2,158 @@
 
 # django-queryset-feeler
 
-## About
-django-queryset-feeler (dqf) is a drop in tool to optimize queryset execution from the command line and notebooks. Get a better feel for how the database is being accessed by native django `views.py` and api `serializers.py`.
+Get a better feel for how your django views and serializers are accessing your app’s database. Use django-queryset-feeler (dqf) to measure the count, execution time, and raw SQL of your queries from the command line, ipython shell, or jupyter notebook without any configuration.
 
-## Install
+This extension is used differently than the popular [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar) in a few ways. First, dqf can be used to profile more than just views. You can pass functions, querysets, views, class based views, and [django-rest-framework](https://github.com/encode/django-rest-framework/) serializers to dqf for profiling. Second, dqf profiles queries with only one object and can be used in the command line, ipython shell, or jupyter notebook. This is especially useful for prototyping or learning how django querysets are executed. 
+
+## Usage
 ```
-$ pip install django-queryset-feeler
+pip install django-queryset-feeler
 ```
+```python
+from django-queryset-feeler import Feel
+```
+| Query Type | About |
+| :--- | :--- |
+| `Feel(view)`| Execute a view using an empty HttpRequest. Add a `request` key word argument to supply your own request. | 
+| `Feel(ClassBasedView)` | Execute an eligible class based view using an empty HttpRequest with a `GET` method. Add a `request` key word argument to supply your own request. |
+| `Feel(serializer)` | Execute a serializer on the model specified by the serializer's Meta class. |
+| `Feel(queryset)` | Execute a queryset |
+| `Feel(function)` | Execute a function |
+
+
+| Property | About 
+| :--- | :---
+| `feel.query_time`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  | Repeat the query 100 times (adjust iterations with the `iterations` key word argument) and return the average query duration in seconds.  
+| `feel.query_count` | Execute the query and return the number of times that the database was accessed. 
+| `feel.sql_queries` | Execute the query and return a formatted copy of the raw SQL. 
+| `feel.table_counts` | Execute the query and return a dictionary containing each table and how many times it was accessed. 
+|`feel.report` | Print the query time, count, and table count summary.  
+
 ## Example
-### models.py
+The below example illustrates an easy to make django queryset mistake called an 'n + 1' query and how to use dqf to find it.   
+#### `project / app / models.py`
 ```python
 class Topping(models.Model):
     name = CharField()
-    vegan = BooleanField()
+    vegetarian = BooleanField()
 
 class Pizza(models.Model):
     name = CharField()
     toppings = ManyToManyField(Topping)
 ```
-### views.py
+#### `project / app / views.py`
 ```python
-def pizza_table(request):
+def pizza_list(request):
     pizzas = Pizza.objects.all()
-    return(request, 'pizza_table.html' context={'pizzas': pizzas})
+    return(request, 'pizza_list.html' context={'pizzas': pizzas})
 ```
-### pizza_table.html
+#### `project / app / templates / app / pizza_list.html`
 ```html
 {% for pizza in pizzas %}
 <td>
     <tr>{{ pizza.name }}</tr>
     <tr>
-        {% for topping in pizza.toppings %}
-            {% if topping.vegan %}
-                🌱
-            {% else %}
-                🥩
-            {% endif %}
-            {{ toppings.name }}
-        {% endfor %}
+    {% for topping in pizza.toppings %}
+        {{ topping.name }}
+    {% endfor %}
+    </tr>
+    <tr>
+    {% with last=pizza.toppings|dictsort:'archived'|last %}
+        {% if last.vegetarian %}
+            🌱
+        {% else %}
+            🥩
+        {% endif %}
+    {% endwith %}
     </tr>
 <td>
 {% endfor %}
 ```
-### output
 
-| Pizza 	| Toppings 	|  |
-| ---: |---	|---
-| mediterranean 	| 🌱 roasted eggplant, 🌱 balsamic glaze|
-| hawaiian 	|🌱 pineapple, 🥩 smoked ham| 
-| meat lovers | 🥩 pepperoni, 🥩 andouille sausage, 🥩 capicola 	|
-
-
-<br>
-
-## Unoptimized View
-
-<sub>
-The below example shows how easy it is to make a mistake formatting django query sets. This view hits the database with a new request for every object in Pizza.objects.all() . 
+| Pizza | Toppings | |
+| ---: | --- | ---
+| mediterranean | roasted eggplant, balsamic glaze | 🌱
+| hawaiian | pineapple, smoked ham | 🥩
+| meat lovers | pepperoni, andouille sausage, capicola | 🥩
 
 
-</sub>
+#### `project / dqf.ipynb`
+Note that the `DEBUG` setting in `project / settings.py` must be `True` for dqf to work. `DEBUG` is enabled by default when you create a django project. 
+```python
+from django_queryset_feeler import Feel
+from app.views import pizza_list
 
----
+feel = Feel(pizza_list)
 
-<br>
-
-<details>
-<summary>
-Run django in jupyter notebook
-</summary>
-<br>
-
-`/project` \
-`$ touch dqf.ipynb` 
+print(f'query count: {feel.query_count}')
+print(f'average duration: {feel.duration} s')
+print(feel.sql_queries)
+```
 
 ```python
+'query count: 4'
+'average duration: 0.00023 s'
+
+SELECT "app_pizza"."id",
+       "app_pizza"."name",
+FROM "app_pizza"
+
+SELECT "app_topping"."id",
+       "app_topping"."name",
+       "app_topping"."vegetarian"
+FROM "app_topping"
+WHERE "app_topping"."id" = '0'
+
+SELECT "app_topping"."id",
+       "app_topping"."name",
+       "app_topping"."vegetarian"
+FROM "app_topping"
+WHERE "app_topping"."id" = '1'
+
+SELECT "app_topping"."id",
+       "app_topping"."name",
+       "app_topping"."vegetarian"
+FROM "app_topping"
+WHERE "app_topping"."id" = '2'
+```
+In the above example django queried the database a total of 4 times: once to get a list of pizzas and then again for each pizza to find its toppings. As more pizzas are added to the menu n + 1 queries would be made to the database where n is the number of pizzas. 
+
+Note that even though the pizza's toppings are accessed once in column 2 for the name and again in column 3 to determine if the pizza is vegetarian the database is still accessed only once in this period. This is because after evaluation the results are stored in the queryset object and used for subsequent calls. 
+
+A more efficient way to render this template would be to fetch the list of pizzas and then query the toppings table once to get all the toppings for all the pizzas. Django makes this easy using [prefetch_related()](https://docs.djangoproject.com/en/4.0/ref/models/querysets/#prefetch-related). 
+#### `project / app / views.py` 
+```python
+def pizza_list(request):
+    pizzas = Pizza.objects.all().prefetch_related('toppings')
+    return(request, 'pizza_list.html' context={'pizzas': pizzas})
+```
+#### `project / dqf.ipynb`
+```python
+feel = Feel(pizza_list)
+feel.report
+```
+```python
+     query count: 2         
+average duration: 0.069 ms                
+   unique tables: 2         
+        accessed   
+```
+
+## Run Django in a Jupyter Notebook
+
+#### `project / dqf.ipynb`
+```python 
+# re-import modules when a cell is run. This ensures that changes made to
+# the django app are synced with your notebook
+%load_ext autoreload
+%autoreload 2
+
 import django
 import os
-import django_queryset_visualizer
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'backend.settings'
+# change 'project.settings' to '{ your project }.settings'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'project.settings'
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 ```
----
-<br>
-
-</details>
-
-<br>
-
-```python
-import django_queryset_feeler as dqf
-from app.models import Pizza
-
-def view():
-    query = Pizza.objects.all()
-    for pizza in query:
-        pizza.name
-        for topping in pizza.toppings:
-            toppings.name
-            topping.vegan
-            
-feel = dqf(view)
-
-print(feel.count_queries())
-print(feel.query_time())
-print(feel.most_common_table)
-print(feel.iterate_queries())
-```
-
->750 database hits\
->800 microsecond query time \
->Topping [app.models.Topping]
->
->
->```sql
->SELECT 'pizza'.'name' FROM 'app_pizza'
->SELECT 'topping' FROM 'app_toppings' where 'ID' = 1\
->SELECT 'topping' FROM 'app_toppings' where 'ID' = 2\
->SELECT 'pizza'.'name' FROM 'app_pizza'
->SELECT 'topping' FROM 'app_toppings' where 'ID' = 1\
->SELECT 'topping' FROM 'app_toppings' where 'ID' = 3\
->...
->```
->
-> ### **+_700_ more queries!!!** 
-><details>
-><summary>
->This is an example of an 'n + 1' query
-></summary>
->
->An 'n+ 1' query is
->
->---
-><br>
-></details>
->
-
-<br>
-
-### **Optimized View**
-<sub>
-Here .prefetch_related() is used to create a join table between the pizza table and the columns 'name' and 'vegan' from the toppings table.  
-</sub>
-
----
-
-```python
-import django_queryset_feeler as dqf
-from app.models import Pizza
-
-def view():
-    query = Pizza.objects.select_related('toppings')
-    for pizza in query:
-        pizza.name
-        for topping in pizza.toppings:
-            toppings.name
-            topping.vegan
-
-feel = dqf(view)
-
-print(feel.count_queries)
-print(feel.query_time)
-print(feel.iterate_queries())
-```
-> 2 database hits \
-> 2 microsecond query time 
->  
->SELECT \
->&nbsp;&nbsp;&nbsp;&nbsp;app_pizza.id, \
->        app_pizza.name, \
->        app_topping.id, \
->        app_topping.name, \
->        app_topping.vegetarian, \
->FROM "app_pizza" 
->
->WHERE ("bubble_phlog"."batch_id" = 'e811'
->       AND "bubble_phlog"."owner_id" = '396') 
->
-
-## Profile Serializers
-
-```python
-
-def is_vegan():
-    query = Pizza.objects.all()
-    for pizza in query:
-        non_vegan = pizza.toppings.filter(vegan=False)
-        if non_vegan.exists():
-            pizza_vegan = False
-        else:
-            pizza_vegan = True
-
-```
-
-## output
-
-| Pizza 	| Vegan | Toppings |
-| ---: |:---:	|---
-| mediterranean | 🌱 | roasted eggplant, balsamic glaze|
-| hawaiian 	| 🥩 | pineapple, smoked ham| 
-| meat lovers | 🥩 | pepperoni, andouille sausage, capicola 	|
