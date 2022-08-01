@@ -11,7 +11,7 @@ This extension is used differently than the popular [django-debug-toolbar](https
 pip install django-queryset-feeler
 ```
 ```python
-from django-queryset-feeler import Feel
+from django_queryset_feeler import Feel
 ```
 | Query Type | About |
 | :--- | :--- |
