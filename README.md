@@ -13,6 +13,7 @@ pip install django-queryset-feeler
 ```python
 from django_queryset_feeler import Feel
 ```
+Create a `Feel()` instance by passing it any one of the following objects from your django project. No other configuration is required. 
 | Query Type | About |
 | :--- | :--- |
 | `Feel(view)`| Execute a view using an empty HttpRequest. Add a `request` key word argument to supply your own request. | 
@@ -22,6 +23,7 @@ from django_queryset_feeler import Feel
 | `Feel(model_instance)` | Execute a model instance by calling it again from the database using `.refresh_from_db()` |
 | `Feel(function)` | Execute a function |
 
+Profile your queries using any of the following properties. 
 
 | Property | About 
 | :--- | :---
@@ -32,7 +34,7 @@ from django_queryset_feeler import Feel
 |`feel.report` | Print the query time, count, and table count summary.  
 
 ## Example
-The below example illustrates an easy to make django queryset mistake called an 'n + 1' query and how to use dqf to find it.   
+The below example illustrates an easy to make django queryset mistake called an 'n + 1 query' and how to use dqf to find it.   
 #### `project / app / models.py`
 ```python
 class Topping(models.Model):
@@ -153,7 +155,7 @@ average duration: 0.069 ms
 import django
 import os
 
-# change 'project.settings' to '{ your project }.settings'
+# change 'project.settings' to '{your_project}.settings'
 os.environ['DJANGO_SETTINGS_MODULE'] = 'project.settings'
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
