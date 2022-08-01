@@ -1,11 +1,8 @@
 from typing import Type
 from django.http import HttpRequest, HttpResponse
-from django.db.models.query import QuerySet
-from django.db import transaction
-from django.db.models.query import ModelIterable
+from django.db.models.query import QuerySet, ModelIterable
+from django.db.models.base import ModelState
 from inspect import signature, isclass
-
-from .exceptions import error_messages
 
 class Thing():
     '''Determine the real type of a thing
@@ -35,11 +32,21 @@ class Thing():
                 thing_type = 'view'
             else:
                 thing_type = 'function'
+        elif self.check_model_instance(thing):
+            thing_type = 'model_instance'
         else:
-            if type(thing) == QuerySet:
-                raise TypeError(error_messages['executed_query_error'])
-            raise TypeError('Invalid Thing')
+            raise TypeError('Invalid Thing. Valid things are querysets, django class based views, serializers, django views, functions, and model instances.')
         return thing_type
+
+    def check_model_instance(self, thing):
+        try:
+            state = thing.__dict__['_state']
+            if type(state) == ModelState:
+                return True
+            else:
+                return False
+        except (KeyError, AttributeError):
+            return False
 
     def check_django_view(self, thing):
         parameters = list(signature(thing).parameters)
@@ -93,6 +100,8 @@ class Thing():
             return self.execute_django_cbv
         elif thing_type == 'serializer':
             return self.execute_serializer
+        elif thing_type == 'model_instance':
+            return self.execute_model_instance
         else:
             raise TypeError(f'Invalid Type: {thing_type}')
 
@@ -143,6 +152,12 @@ class Thing():
         try:
             serializer_execution = thing(instance=queryset, many=many)
             serializer_execution.data
+        except Exception as e:
+            raise e
+
+    def execute_model_instance(self, thing):
+        try:
+            thing.refresh_from_db()
         except Exception as e:
             raise e
 
