@@ -5,7 +5,7 @@ build-backend = 'setuptools.build_meta'
 [project]
 name = 'django-queryset-feeler'
 description = 'tools to help understand how django querysets are executed'
-version = '0.0.4'
+version = '0.0.5'
 authors = [
     {name='Lukas Schillinger', email='lukas@schillingertools.com'}, 
 ]

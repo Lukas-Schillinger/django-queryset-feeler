@@ -4,7 +4,7 @@
 
 Get a better feel for how your django views and serializers are accessing your app’s database. Use django-queryset-feeler (dqf) to measure the count, execution time, and raw SQL of your queries from the command line, ipython shell, or jupyter notebook without any configuration.
 
-This extension is used differently than the popular [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar) in a few ways. First, dqf can be used to profile more than just views. You can pass functions, querysets, views, class based views, and [django-rest-framework](https://github.com/encode/django-rest-framework/) serializers to dqf for profiling. Second, dqf profiles queries with only one object and can be used in the command line, ipython shell, or jupyter notebook. This is especially useful for prototyping or learning how django querysets are executed. 
+This extension is used differently than the popular [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar) in a few ways. First, dqf can be used to profile more than just views. You can pass functions, querysets, model instances, views, class based views, and [django-rest-framework](https://github.com/encode/django-rest-framework/) serializers to dqf for profiling. Second, dqf profiles queries with only one object and can be used in the command line, ipython shell, or jupyter notebook. This is especially useful for prototyping or learning how django querysets are executed. 
 
 ## Usage
 ```
@@ -19,6 +19,7 @@ from django_queryset_feeler import Feel
 | `Feel(ClassBasedView)` | Execute an eligible class based view using an empty HttpRequest with a `GET` method. Add a `request` key word argument to supply your own request. |
 | `Feel(serializer)` | Execute a serializer on the model specified by the serializer's Meta class. |
 | `Feel(queryset)` | Execute a queryset |
+| `Feel(model_instance)` | Execute a model instance by calling it again from the database using `.refresh_from_db()` |
 | `Feel(function)` | Execute a function |
 
 
