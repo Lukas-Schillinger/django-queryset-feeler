@@ -145,10 +145,7 @@ class Thing():
     def execute_serializer(self, thing):
         model = thing.Meta.model
         queryset = model.objects.all()
-        if len(queryset) > 1:
-            many = True
-        else:
-            many = False
+        many = True if len(queryset) > 1 else False
         try:
             serializer_execution = thing(instance=queryset, many=many)
             serializer_execution.data

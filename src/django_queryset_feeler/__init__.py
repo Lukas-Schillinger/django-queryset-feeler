@@ -64,10 +64,19 @@ def display_query(query):
 class Feel():
     '''Get a feel for how the Django ORM is executing queries
 
-    A lot goes into this
+    `thing` is the thing being profiled. This can be a `view`, a `class_based_view`, 
+    a `queryset`, a `model_instance`, a `serializer`, or a regular function.  
+
+    `iterations` is the number of times the Thing is executed to measure `query_time`. 
+    Default is 100
+
+    `reset_queries_ok` checks if it's okay to delete the query history in 
+    `django.db.connections.queries`. Default is True
     '''
 
-    def __init__(self, thing, iterations: int = 100, reset_queries_ok=True, *args, **kwargs):
+    def __init__(
+        self, thing, iterations: int = 100, reset_queries_ok=True, *args, **kwargs
+    ):
         self.iterations = iterations
         self.reset_queries_ok = reset_queries_ok
         

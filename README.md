@@ -49,19 +49,19 @@ class Pizza(models.Model):
 ```python
 def pizza_list(request):
     pizzas = Pizza.objects.all()
-    return(request, 'pizza_list.html' context={'pizzas': pizzas})
+    return render(request, 'pizza_list.html' context={'pizzas': pizzas})
 ```
 #### `project / app / templates / app / pizza_list.html`
 ```html
 {% for pizza in pizzas %}
-<td>
-    <tr>{{ pizza.name }}</tr>
-    <tr>
+<tr>
+    <td>{{ pizza.name }}</td>
+    <td>
     {% for topping in pizza.toppings %}
         {{ topping.name }}
     {% endfor %}
-    </tr>
-    <tr>
+    </td>
+    <td>
     {% with last=pizza.toppings|dictsort:'vegetarian'|last %}
         {% if last.vegetarian %}
             🌱
@@ -69,8 +69,8 @@ def pizza_list(request):
             🥩
         {% endif %}
     {% endwith %}
-    </tr>
-<td>
+    </td>
+<tr>
 {% endfor %}
 ```
 
@@ -129,7 +129,7 @@ A more efficient way to render this template would be to fetch the list of pizza
 ```python
 def pizza_list(request):
     pizzas = Pizza.objects.all().prefetch_related('toppings')
-    return(request, 'pizza_list.html' context={'pizzas': pizzas})
+    return render(request, 'pizza_list.html' context={'pizzas': pizzas})
 ```
 #### `project / dqf.ipynb`
 ```python

@@ -28,3 +28,6 @@ dependencies = [
 
 [project.urls]
 homepage = 'https://github.com/lukas-schillinger/django-queryset-feeler'
+
+[project.optional-dependencies]
+test = ['djangorestframework >= 3.13.1']
