@@ -146,7 +146,6 @@ class Feel:
     @property
     def report(self) -> None:
         table_dict = self.tables
-        most_accessed_table = list(table_dict.items())[0][0]
         report = f"\
         \n           query count: {self.count} \
         \n      average duration: {round((self.time * 1000), 3)} ms \
