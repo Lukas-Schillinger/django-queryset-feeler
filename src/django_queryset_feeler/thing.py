@@ -1,4 +1,5 @@
 from typing import Type
+from urllib import request
 from django.http import HttpRequest, HttpResponse
 from django.db.models.query import QuerySet, ModelIterable
 from django.db.models.base import ModelState
@@ -11,9 +12,11 @@ class Thing():
     ['queryset', 'view', 'function', 'django_cbv', 'serializer']
     '''
 
-    def __init__(self, thing, *args, **kwargs):
+    def __init__(self, thing, execution_dict, *args, **kwargs):
         self.thing = thing
         self.kwargs = kwargs
+        self.execution_dict = execution_dict
+
         self.thing_type = self.find_thing_type(thing)
         self.executor = self.find_executor_type(self.thing_type)
 
@@ -38,6 +41,12 @@ class Thing():
             raise TypeError('Invalid Thing. Valid things are querysets, django class based views, serializers, django views, functions, and model instances.')
         return thing_type
 
+    def get_request_or_create(self) -> HttpRequest:
+        request = self.execution_dict['request']
+        if request == None:
+            request = HttpRequest()
+        return request
+
     def check_model_instance(self, thing):
         try:
             state = thing.__dict__['_state']
@@ -52,7 +61,9 @@ class Thing():
         parameters = list(signature(thing).parameters)
         if 'request' not in parameters:
             return False
-        response = thing(HttpRequest())
+        
+        request = self.get_request_or_create()
+        response = thing(request)
         if type(response) == HttpResponse:
             return True
         else:
@@ -118,7 +129,7 @@ class Thing():
             raise e
 
     def execute_view(self, thing):
-        request = self.kwargs.get('request', HttpRequest())
+        request = self.get_request_or_create()
         try:
             thing(request)
         except Exception as e:
@@ -131,11 +142,8 @@ class Thing():
             raise e
 
     def execute_django_cbv(self, thing):
-        if self.kwargs.get('request'):
-            request = self.kwargs.get('request')
-        else:
-            request = HttpRequest()
-            request.method = 'GET'
+        request = self.get_request_or_create()
+        request.method = 'GET'
         try:
             response = thing.as_view()(request)
             response.render()

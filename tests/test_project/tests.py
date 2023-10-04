@@ -9,34 +9,38 @@ from test_app import views
 
 settings.DEBUG = True
 
-def create_models():
-    Topping.objects.bulk_create([
-        Topping(name='roasted eggplant', vegetarian=True),
-        Topping(name='balsamic glaze', vegetarian=True), 
-        Topping(name='pineapple', vegetarian=True), 
-        Topping(name='smoked ham', vegetarian=False), 
-        Topping(name='pepperoni', vegetarian=False), 
-        Topping(name='andouille sausage', vegetarian=False), 
-        Topping(name='capicola', vegetarian=False), 
-    ])
 
-    mediterranean = Pizza(name='Mediterranean')
-    hawaiian = Pizza(name='Hawaiian')
-    meat_lovers = Pizza(name='Meat Lovers')
+def create_models():
+    Topping.objects.bulk_create(
+        [
+            Topping(name="roasted eggplant", vegetarian=True),
+            Topping(name="balsamic glaze", vegetarian=True),
+            Topping(name="pineapple", vegetarian=True),
+            Topping(name="smoked ham", vegetarian=False),
+            Topping(name="pepperoni", vegetarian=False),
+            Topping(name="andouille sausage", vegetarian=False),
+            Topping(name="capicola", vegetarian=False),
+        ]
+    )
+
+    mediterranean = Pizza(name="Mediterranean")
+    hawaiian = Pizza(name="Hawaiian")
+    meat_lovers = Pizza(name="Meat Lovers")
 
     mediterranean.save()
     hawaiian.save()
     meat_lovers.save()
 
-    mediterranean.toppings.add(Topping.objects.get(name='roasted eggplant'))
-    mediterranean.toppings.add(Topping.objects.get(name='balsamic glaze'))
+    mediterranean.toppings.add(Topping.objects.get(name="roasted eggplant"))
+    mediterranean.toppings.add(Topping.objects.get(name="balsamic glaze"))
 
-    hawaiian.toppings.add(Topping.objects.get(name='pineapple'))
-    hawaiian.toppings.add(Topping.objects.get(name='smoked ham'))
+    hawaiian.toppings.add(Topping.objects.get(name="pineapple"))
+    hawaiian.toppings.add(Topping.objects.get(name="smoked ham"))
 
-    meat_lovers.toppings.add(Topping.objects.get(name='pepperoni'))
-    meat_lovers.toppings.add(Topping.objects.get(name='capicola'))
-    meat_lovers.toppings.add(Topping.objects.get(name='andouille sausage'))
+    meat_lovers.toppings.add(Topping.objects.get(name="pepperoni"))
+    meat_lovers.toppings.add(Topping.objects.get(name="capicola"))
+    meat_lovers.toppings.add(Topping.objects.get(name="andouille sausage"))
+
 
 class TestQuerysets(TestCase):
     def setUp(self) -> None:
@@ -45,7 +49,7 @@ class TestQuerysets(TestCase):
     def test_queryset(self):
         queryset = Pizza.objects.all()
         feel = Feel(queryset)
-        self.assertEqual(feel.query_count, 1)
+        self.assertEqual(feel.count, 1)
 
 
 class TestClassBasedViews(TestCase):
@@ -54,7 +58,7 @@ class TestClassBasedViews(TestCase):
 
     def test_list_view(self):
         feel = Feel(views.PizzaListView)
-        self.assertEqual(feel.query_count, 7)
+        self.assertEqual(feel.count, 7)
 
     def test_delete_view(self):
         self.assertRaises(TypeError, Feel(views.DeleteView))
@@ -66,11 +70,11 @@ class TestSerializers(TestCase):
 
     def test_serializer_pizza(self):
         feel = Feel(PizzaSerializer)
-        self.assertEqual(feel.query_count, 4)
+        self.assertEqual(feel.count, 4)
 
     def test_serializer_topping(self):
         feel = Feel(ToppingSerializer)
-        self.assertEqual(feel.query_count, 1)
+        self.assertEqual(feel.count, 1)
 
 
 class TestViews(TestCase):
@@ -79,11 +83,11 @@ class TestViews(TestCase):
 
     def test_optimized_view(self):
         feel = Feel(views.pizza_list_optimized)
-        self.assertEqual(feel.query_count, 2)
+        self.assertEqual(feel.count, 2)
 
     def test_unoptimized_view(self):
         feel = Feel(views.pizza_list_unoptimized)
-        self.assertEqual(feel.query_count, 7)
+        self.assertEqual(feel.count, 7)
 
 
 class TestFunctions(TestCase):
@@ -97,7 +101,7 @@ class TestFunctions(TestCase):
                 list(pizza.toppings.all())
 
         feel = Feel(example_function)
-        self.assertEqual(feel.query_count, 4)
+        self.assertEqual(feel.count, 4)
 
 
 class TestModelInstance(TestCase):
@@ -105,6 +109,6 @@ class TestModelInstance(TestCase):
         create_models()
 
     def test_model_instance(self):
-        instance = Pizza.objects.get(name='Hawaiian')
+        instance = Pizza.objects.get(name="Hawaiian")
         feel = Feel(instance)
-        self.assertEqual(feel.query_count, 1)
+        self.assertEqual(feel.count, 1)
