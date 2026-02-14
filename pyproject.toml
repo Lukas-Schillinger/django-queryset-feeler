@@ -101,7 +101,9 @@ ignore = [
     "D203",   # one-blank-line-before-class -- conflicts with D211
     "D213",   # multi-line-docstring-summary-second-line -- conflicts with D212
     "TRY003", # long exception messages -- too strict for a small library
-    "S101",   # assert -- we'll allow per-file instead
+    "S101",   # assert -- used for type narrowing after None checks
+    "ANN401", # Any -- necessary for a library accepting arbitrary Django objects
+    "D107",   # missing docstring in __init__ -- class docstring suffices
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -124,3 +126,9 @@ root = ["./src"]
 
 [tool.ty.src]
 exclude = ["tests/**"]
+
+[[tool.ty.overrides]]
+# pygments doesn't ship complete stubs; IPython is optional
+include = ["src/django_queryset_feeler/__init__.py"]
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"

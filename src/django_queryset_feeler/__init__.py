@@ -1,200 +1,216 @@
-import sqlparse
+"""django-queryset-feeler: profile Django ORM queries with ease."""
+
+from __future__ import annotations
+
 import statistics
-import warnings
-from collections import Counter, OrderedDict
-from sql_metadata import Parser as SQLParser
+from collections import Counter
+from contextlib import contextmanager
+from dataclasses import dataclass
+from time import perf_counter
+from typing import TYPE_CHECKING, Any
+
+import sqlparse
+from django.db import connection, reset_queries
 from pygments import highlight
-from pygments.lexers import SqlLexer
 from pygments.formatters import HtmlFormatter, TerminalTrueColorFormatter
+from pygments.lexers import SqlLexer
+from sql_metadata import Parser as SQLParser
+
+from .thing import Thing
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from django.http import HttpRequest
+
 try:
-    from IPython.core.display import HTML, display as ipython_display
+    from IPython.core.display import HTML
+    from IPython.core.display import display as ipython_display
 
     _has_ipython = True
 except ImportError:
     _has_ipython = False
-from time import perf_counter
-from django.db import connection, reset_queries
-from django.db.backends.base.base import BaseDatabaseWrapper
-
-from .thing import Thing
 
 
-def is_notebook():
+def _is_notebook() -> bool:
+    """Detect if code is running in a Jupyter notebook."""
     try:
-        shell = get_ipython().__class__.__name__  # type: ignore
-        if shell == "ZMQInteractiveShell":
-            return True  # Jupyter notebook or qtconsole
-        elif shell == "TerminalInteractiveShell":
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
+        shell = get_ipython().__class__.__name__  # type: ignore[name-defined]
     except NameError:
-        return False  # Probably standard Python interpreter
+        return False
+    return shell == "ZMQInteractiveShell"
 
 
-def highlight_query(query):
-    """Format and add highlights to the SQL of a django queryset
+def _format_sql(sql: str) -> str:
+    """Format and syntax-highlight a SQL string."""
+    formatted = sqlparse.format(sql, reindent=True)
 
-    Can highlight jupyter notebooks using pygment's HTML highlighter
-
-    As of now only highlights using one-dark styling
-    """
-    query_string = query
-    formatted_string = sqlparse.format(query_string, reindent=True)
-
-    if is_notebook():
-        formatter = HtmlFormatter(
-            full=True,
-            nobackground=True,
-            style="one-dark",
-        )
+    if _is_notebook():
+        formatter = HtmlFormatter(full=True, nobackground=True, style="one-dark")
     else:
-        formatter = TerminalTrueColorFormatter(
-            style="one-dark",
-        )
+        formatter = TerminalTrueColorFormatter(style="one-dark")
 
-    hightlighted_query = highlight(
-        code=formatted_string,
-        lexer=SqlLexer(),
-        formatter=formatter,
-    )
-    return hightlighted_query
+    return highlight(code=formatted, lexer=SqlLexer(), formatter=formatter)
 
 
-def display_query(query):
-    highlighted_query = highlight_query(query)
-    if _has_ipython and is_notebook():
-        ipython_display(HTML(highlighted_query))
+def _display_sql(sql: str) -> None:
+    """Display formatted SQL, using IPython display if in a notebook."""
+    highlighted = _format_sql(sql)
+    if _has_ipython and _is_notebook():
+        ipython_display(HTML(highlighted))
     else:
-        print(highlighted_query)
+        print(highlighted)  # noqa: T201
+
+
+def _extract_table(sql: str) -> str:
+    """Extract the primary table name from a SQL query."""
+    try:
+        tables = SQLParser(sql).tables
+    except ValueError:
+        return "<unknown>"
+    return tables[0] if tables else "<unknown>"
+
+
+@dataclass(frozen=True)
+class Query:
+    """A single captured database query."""
+
+    sql: str
+    time: str
+    table: str
 
 
 class Feel:
-    """Get a feel for how the Django ORM is executing queries
+    """Profile Django ORM query execution.
 
-    `thing` is the thing being profiled. This can be a `view`, a `class_based_view`,
-    a `queryset`, a `model_instance`, a `serializer`, or a regular function.
+    Pass any Django object (queryset, view, CBV, serializer, model instance,
+    or function) and inspect the queries it generates.
 
-    `iterations` is the number of times the Thing is executed to measure `query_time`.
-    Default is 32
+    Args:
+        thing: The object to profile.
+        iterations: Number of runs for timing (default 32).
+        request: Optional HttpRequest to use for views/CBVs.
 
-    `reset_queries_ok` checks if it's okay to delete the query history in
-    `django.db.connections.queries`. Default is True
     """
 
     def __init__(
         self,
-        thing,
+        thing: Any,
+        *,
         iterations: int = 32,
-        reset_queries_ok=True,
-        execution_args=None,
-        request=None,
-        instance=None,
-        *args,
-        **kwargs,
-    ):
-        self.iterations = iterations
-        self.reset_queries_ok = reset_queries_ok
+        request: HttpRequest | None = None,
+    ) -> None:
+        self._thing = Thing(thing, request=request)
+        self._iterations = iterations
+        self._queries: list[Query] | None = None
+        self._times: list[float] | None = None
 
-        self.execution_dict = {
-            "execution_args": execution_args,
-            "request": request,
-            "instance": instance,
-        }
-
-        self.thing = Thing(thing, self.execution_dict, *args, **kwargs)
-        self.type = self.thing.thing_type
-
-        self.__times = None
-
-    def flush_queries(self) -> None:
-        if self.reset_queries_ok:
-            reset_queries()
-        else:
-            max_queries = BaseDatabaseWrapper.queries_limit
-            query_log_count = len(connection.queries)
-            if query_log_count >= max_queries:
-                raise IndexError(
-                    "Queries cannot be tracked once the max log count has been reached. Use django.db.reset_queries() to flush query log"
-                )
-
-            query_threshhold = 500
-            if query_log_count > max_queries - query_threshhold:
-                warnings.warn(
-                    f"Approaching query log limit. Currently {query_log_count} / {max_queries}"
-                )
+    def _execute(self) -> None:
+        """Execute the thing once and snapshot the queries."""
+        if self._queries is not None:
+            return
+        reset_queries()
+        self._thing.execute()
+        self._queries = [
+            Query(sql=q["sql"], time=q["time"], table=_extract_table(q["sql"]))
+            for q in connection.queries
+        ]
 
     @property
-    def time(self) -> float:
-        """Return the mean query time in microseconds.
-
-        The query will not be rerun every time the property is accessed.
-        """
-        if not self.__times:
-            times = []
-            for i in range(self.iterations):
-                t0 = perf_counter()
-                self.thing.execute_thing()
-                t1 = perf_counter()
-                duration = t1 - t0
-                times.append(duration)
-            self.__times = times
-        return statistics.mean(self.__times)
+    def queries(self) -> list[Query]:
+        """Individual queries from the execution."""
+        self._execute()
+        assert self._queries is not None
+        return list(self._queries)
 
     @property
     def count(self) -> int:
-        self.flush_queries()
-        self.thing.execute_thing()
-        query_count = len(connection.queries)
-        return query_count
+        """Number of database queries executed."""
+        self._execute()
+        assert self._queries is not None
+        return len(self._queries)
 
     @property
-    def report(self) -> None:
-        table_dict = self.tables
-        report = f"\
-        \n           query count: {self.count} \
-        \n      average duration: {round((self.time * 1000), 3)} ms \
-        \n   most accessed table: {list(table_dict.items())[0][0]} - {list(table_dict.items())[0][1]} \
-        \n         unique tables: {len(table_dict)} \
-        \n              accessed \
-        "
-        return print(report)
-
-    def __get_query_list(self) -> list:
-        """
-        connection.queries returns a list of dictionaries containing the
-        sql query and the time it took to execute the query. This function
-        isolates just the sql query
-        """
-        self.flush_queries()
-        self.thing.execute_thing()
-
-        queries = []
-        for query in connection.queries:
-            queries.append(query["sql"])
-
-        return queries
+    def sql(self) -> str:
+        """Formatted SQL of all queries, separated by blank lines."""
+        self._execute()
+        assert self._queries is not None
+        return "\n\n".join(_format_sql(q.sql) for q in self._queries)
 
     @property
-    def sql(self, pretty=True) -> None:
-        for query in self.__get_query_list():
-            if pretty:
-                display_query(query)
-            else:
-                print(query)
+    def tables(self) -> dict[str, int]:
+        """Table access counts, sorted by frequency (descending)."""
+        self._execute()
+        assert self._queries is not None
+        counts = Counter(q.table for q in self._queries)
+        return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True))
 
     @property
-    def tables(self) -> OrderedDict:
-        self.flush_queries()
-        self.thing.execute_thing()
-        sql_list = [query["sql"] for query in connection.queries]
-        tables = []
-        for sql in sql_list:
-            parsed = SQLParser(sql)
-            queried_tables = parsed.tables
-            tables += queried_tables
-        table_counts = dict(Counter(tables))
-        sorted_dict = OrderedDict(
-            sorted(table_counts.items(), key=lambda x: x[1], reverse=True)
+    def time(self) -> float:
+        """Mean execution time in seconds across iterations."""
+        if self._times is None:
+            self._times = [self._benchmark_once() for _ in range(self._iterations)]
+        return statistics.mean(self._times)
+
+    def _benchmark_once(self) -> float:
+        """Run the thing once and return the wall-clock duration."""
+        t0 = perf_counter()
+        self._thing.execute()
+        return perf_counter() - t0
+
+    @property
+    def report(self) -> str:
+        """Human-readable summary of query profiling results."""
+        lines = [
+            f"  query count: {self.count}",
+            f"     duration: {round(self.time * 1000, 3)} ms",
+            f"unique tables: {len(self.tables)}",
+        ]
+        if self.tables:
+            top_table, top_count = next(iter(self.tables.items()))
+            lines.append(f" most accessed: {top_table} ({top_count})")
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Structured output for programmatic consumption."""
+        return {
+            "type": self._thing.thing_type,
+            "count": self.count,
+            "time_ms": round(self.time * 1000, 3),
+            "tables": self.tables,
+            "queries": [
+                {"sql": q.sql, "time": q.time, "table": q.table} for q in self.queries
+            ],
+        }
+
+    def __repr__(self) -> str:
+        """Show key stats at a glance in REPL/notebook."""
+        return (
+            f"Feel(type={self._thing.thing_type}, count={self.count}, "
+            f"time={round(self.time * 1000, 3)}ms, tables={len(self.tables)})"
         )
-        return sorted_dict
+
+    @classmethod
+    @contextmanager
+    def profile(cls) -> Generator[Feel, None, None]:
+        """Context manager for profiling arbitrary code blocks.
+
+        Usage::
+
+            with Feel.profile() as f:
+                pizzas = Pizza.objects.all()
+                for p in pizzas:
+                    list(p.toppings.all())
+            print(f.count)
+        """
+        reset_queries()
+        result = cls.__new__(cls)
+        result._queries = None
+        result._times = None
+        result._iterations = 32
+        yield result
+        # Snapshot queries after the block executes
+        result._queries = [
+            Query(sql=q["sql"], time=q["time"], table=_extract_table(q["sql"]))
+            for q in connection.queries
+        ]

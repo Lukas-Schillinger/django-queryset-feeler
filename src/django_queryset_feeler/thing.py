@@ -1,175 +1,116 @@
-from typing import Type
-from urllib import request
-from django.http import HttpRequest, HttpResponse
-from django.db.models.query import QuerySet, ModelIterable
-from django.db.models.base import ModelState
-from inspect import signature, isclass
+"""Detect and execute different Django object types for profiling."""
+
+from __future__ import annotations
+
+from inspect import isclass, signature
+from typing import TYPE_CHECKING, Any
+
+from django.db.models import Model
+from django.db.models.query import ModelIterable, QuerySet
+from django.http import HttpRequest
+from django.views import View
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+def _is_drf_serializer(cls: type) -> bool:
+    """Check if cls is a DRF serializer using issubclass, not string matching."""
+    try:
+        from rest_framework.serializers import BaseSerializer
+    except ImportError:
+        return False
+    return issubclass(cls, BaseSerializer)
+
+
+def _has_request_param(func: Callable[..., Any]) -> bool:
+    """Check if a callable accepts a 'request' parameter (likely a Django view)."""
+    try:
+        return "request" in signature(func).parameters
+    except (ValueError, TypeError):
+        return False
+
+
+# Each entry: (detector, type_name)
+# Order matters — most specific first, callable/function last (catchall)
+HANDLERS: list[tuple[Callable[[Any], bool], str]] = [
+    (lambda t: isinstance(t, QuerySet), "queryset"),
+    (lambda t: isclass(t) and issubclass(t, View), "cbv"),
+    (lambda t: isclass(t) and _is_drf_serializer(t), "serializer"),
+    (lambda t: isinstance(t, Model), "model_instance"),
+    (lambda t: callable(t) and _has_request_param(t), "view"),
+    (lambda t: callable(t), "function"),
+]
 
 
 class Thing:
-    """Determine the real type of a thing
+    """Wraps a Django object and provides a uniform execute() interface.
 
-    A thing can be one of four types:
-    ['queryset', 'view', 'function', 'django_cbv', 'serializer']
+    Supported types: QuerySet, class-based view, DRF serializer,
+    model instance, function-based view, plain function.
     """
 
-    def __init__(self, thing, execution_dict, *args, **kwargs):
+    def __init__(self, thing: Any, request: HttpRequest | None = None) -> None:
         self.thing = thing
-        self.kwargs = kwargs
-        self.execution_dict = execution_dict
+        self._request = request
+        self.thing_type = self._detect_type(thing)
 
-        self.thing_type = self.find_thing_type(thing)
-        self.executor = self.find_executor_type(self.thing_type)
+    def _detect_type(self, thing: Any) -> str:
+        """Determine the type of thing using the handler table."""
+        for detector, type_name in HANDLERS:
+            if detector(thing):
+                return type_name
+        msg = (
+            "Invalid Thing. Valid things are querysets, class-based views, "
+            "serializers, views, functions, and model instances."
+        )
+        raise TypeError(msg)
 
-    def find_thing_type(self, thing) -> str:
-        if type(thing) == QuerySet:
-            thing_type = "queryset"
-        elif isclass(thing):
-            if self.check_django_class_based_view(thing):
-                thing_type = "django_cbv"
-            elif self.check_serializer(thing):
-                thing_type = "serializer"
-            else:
-                raise TypeError("Invalid Class")
-        elif callable(
-            thing
-        ):  # all classes are callable but not all callables are classes
-            if self.check_django_view(thing):
-                thing_type = "view"
-            else:
-                thing_type = "function"
-        elif self.check_model_instance(thing):
-            thing_type = "model_instance"
-        else:
-            raise TypeError(
-                "Invalid Thing. Valid things are querysets, django class based views, serializers, django views, functions, and model instances."
-            )
-        return thing_type
+    def _get_request(self) -> HttpRequest:
+        """Return the provided request or create an empty one."""
+        if self._request is not None:
+            return self._request
+        return HttpRequest()
 
-    def get_request_or_create(self) -> HttpRequest:
-        request = self.execution_dict["request"]
-        if request == None:
-            request = HttpRequest()
-        return request
+    def execute(self) -> None:
+        """Execute the thing, dispatching to the appropriate handler."""
+        executors: dict[str, Callable[[], None]] = {
+            "queryset": self._execute_queryset,
+            "cbv": self._execute_cbv,
+            "serializer": self._execute_serializer,
+            "model_instance": self._execute_model_instance,
+            "view": self._execute_view,
+            "function": self._execute_function,
+        }
+        executors[self.thing_type]()
 
-    def check_model_instance(self, thing):
-        try:
-            state = thing.__dict__["_state"]
-            if type(state) == ModelState:
-                return True
-            else:
-                return False
-        except (KeyError, AttributeError):
-            return False
+    def _execute_queryset(self) -> None:
+        """Execute a QuerySet bypassing the result cache."""
+        list(ModelIterable(self.thing))
 
-    def check_django_view(self, thing):
-        parameters = list(signature(thing).parameters)
-        if "request" not in parameters:
-            return False
+    def _execute_view(self) -> None:
+        """Execute a function-based view with an HttpRequest."""
+        self.thing(self._get_request())
 
-        request = self.get_request_or_create()
-        response = thing(request)
-        if type(response) == HttpResponse:
-            return True
-        else:
-            return False
+    def _execute_function(self) -> None:
+        """Execute a plain function with no arguments."""
+        self.thing()
 
-    def check_django_class_based_view(self, thing):
-        valid_cbvs = [
-            "View",
-            "TemplateView",
-            "RedirectView",
-            "ArchiveIndexView",
-            "YearArchiveView",
-            "MonthArchiveView",
-            "WeekArchiveView",
-            "DayArchiveView",
-            "TodayArchiveView",
-            "DateDetailView",
-            "DetailView",
-            "ListView",
-            "GenericViewError",
-        ]
-        mro = thing.__mro__
-        intersection = [x for x in mro if any(cbv in str(x) for cbv in valid_cbvs)]
-        if intersection:
-            return True
-        else:
-            return False
-
-    def check_serializer(self, thing):
-        mro = thing.__mro__
-        valid_parent_class = "rest_framework.serializers.ModelSerializer"
-        if any(valid_parent_class in str(parent_class) for parent_class in mro):
-            return True
-        else:
-            return False
-
-    def find_executor_type(self, thing_type):
-        if thing_type == "queryset":
-            return self.execute_queryset
-        elif thing_type == "view":
-            return self.execute_view
-        elif thing_type == "function":
-            return self.execute_function
-        elif thing_type == "django_cbv":
-            return self.execute_django_cbv
-        elif thing_type == "serializer":
-            return self.execute_serializer
-        elif thing_type == "model_instance":
-            return self.execute_model_instance
-        else:
-            raise TypeError(f"Invalid Type: {thing_type}")
-
-    def execute_queryset(self, thing):
-        """Run a Queryset
-
-        when list() is called on a queryset the queryset's _result_cache
-        is checked first. By calling list on the an instance of ModelIterable
-        we can be sure that the queries are actually being run.
-        """
-        try:
-            list(ModelIterable(thing))
-        except Exception as e:
-            raise e
-
-    def execute_view(self, thing):
-        request = self.get_request_or_create()
-        try:
-            thing(request)
-        except Exception as e:
-            raise e
-
-    def execute_function(self, thing):
-        try:
-            thing()
-        except Exception as e:
-            raise e
-
-    def execute_django_cbv(self, thing):
-        request = self.get_request_or_create()
+    def _execute_cbv(self) -> None:
+        """Execute a class-based view via as_view()."""
+        request = self._get_request()
         request.method = "GET"
-        try:
-            response = thing.as_view()(request)
-            response.render()
-        except Exception as e:
-            raise e
+        response = self.thing.as_view()(request)
+        response.render()
 
-    def execute_serializer(self, thing):
-        model = thing.Meta.model
+    def _execute_serializer(self) -> None:
+        """Execute a DRF serializer against all instances of its Meta.model."""
+        model = self.thing.Meta.model
         queryset = model.objects.all()
-        many = True if len(queryset) > 1 else False
-        try:
-            serializer_execution = thing(instance=queryset, many=many)
-            serializer_execution.data
-        except Exception as e:
-            raise e
+        many = len(queryset) > 1
+        serializer = self.thing(instance=queryset, many=many)
+        serializer.data  # noqa: B018 — accessing .data triggers serialization
 
-    def execute_model_instance(self, thing):
-        try:
-            thing.refresh_from_db()
-        except Exception as e:
-            raise e
-
-    def execute_thing(self):
-        self.executor(self.thing)
+    def _execute_model_instance(self) -> None:
+        """Re-fetch a model instance from the database."""
+        self.thing.refresh_from_db()
