@@ -3,9 +3,9 @@ from django.test import TestCase
 
 from django_queryset_feeler import Feel
 
+from . import views
 from .models import Pizza, Topping
 from .serializers import PizzaSerializer, ToppingSerializer
-from . import views
 
 settings.DEBUG = True
 
