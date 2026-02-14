@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.test import TestCase
 
-from django_queryset_feeler import Feel
+from django_queryset_feeler import Feel, Query
 
 from . import views
 from .models import Pizza, Topping
@@ -109,3 +109,99 @@ class TestModelInstance(TestCase):
         instance = Pizza.objects.get(name="Hawaiian")
         feel = Feel(instance)
         self.assertEqual(feel.count, 1)
+
+
+class TestProperties(TestCase):
+    def setUp(self):
+        create_models()
+        self.feel = Feel(Pizza.objects.all())
+
+    def test_sql(self):
+        result = self.feel.sql
+        self.assertIsInstance(result, str)
+        self.assertIn("tests_pizza", result)
+
+    def test_tables(self):
+        result = self.feel.tables
+        self.assertIsInstance(result, dict)
+        self.assertIn("tests_pizza", result)
+        self.assertEqual(result["tests_pizza"], 1)
+
+    def test_time(self):
+        result = self.feel.time
+        self.assertIsInstance(result, float)
+        self.assertGreater(result, 0)
+
+    def test_report(self):
+        result = self.feel.report
+        self.assertIsInstance(result, str)
+        self.assertIn("query count: 1", result)
+
+    def test_queries(self):
+        result = self.feel.queries
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), self.feel.count)
+        for q in result:
+            self.assertIsInstance(q, Query)
+            self.assertIsInstance(q.sql, str)
+            self.assertIsInstance(q.time, str)
+            self.assertIsInstance(q.table, str)
+
+
+class TestToDict(TestCase):
+    def setUp(self):
+        create_models()
+
+    def test_to_dict(self):
+        feel = Feel(Pizza.objects.all())
+        result = feel.to_dict()
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["type"], "queryset")
+        self.assertEqual(result["count"], 1)
+        self.assertIn("time_ms", result)
+        self.assertIn("tables", result)
+        self.assertIsInstance(result["queries"], list)
+        self.assertEqual(len(result["queries"]), 1)
+
+
+class TestRepr(TestCase):
+    def setUp(self):
+        create_models()
+
+    def test_repr(self):
+        feel = Feel(Pizza.objects.all())
+        result = repr(feel)
+        self.assertTrue(result.startswith("Feel("))
+        self.assertIn("count=1", result)
+
+
+class TestProfile(TestCase):
+    def setUp(self):
+        create_models()
+
+    def test_profile(self):
+        with Feel.profile() as f:
+            list(Pizza.objects.all())
+        self.assertEqual(f.count, 1)
+        self.assertIn("tests_pizza", f.tables)
+
+
+class TestInvalidThing(TestCase):
+    def test_invalid_thing(self):
+        with self.assertRaises(TypeError):
+            Feel("not a valid thing")
+
+    def test_invalid_thing_int(self):
+        with self.assertRaises(TypeError):
+            Feel(42)
+
+
+class TestCaching(TestCase):
+    def setUp(self):
+        create_models()
+
+    def test_count_is_stable(self):
+        feel = Feel(Pizza.objects.all())
+        first = feel.count
+        second = feel.count
+        self.assertEqual(first, second)
