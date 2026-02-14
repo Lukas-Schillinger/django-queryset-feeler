@@ -115,6 +115,7 @@ ignore = [
     "ARG",    # unused args fine in test setUp etc.
 ]
 "runtests.py" = ["D", "ANN", "T20"]
+"demo.py" = ["D", "ANN", "T20", "E402"]
 
 [tool.ruff.format]
 quote-style = "double"

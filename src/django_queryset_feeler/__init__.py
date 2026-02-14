@@ -71,6 +71,14 @@ def _extract_table(sql: str) -> str:
     return tables[0] if tables else "<unknown>"
 
 
+class FormattedString(str):
+    """String that displays its contents (not repr) in the REPL."""
+
+    def __repr__(self) -> str:
+        """Return the string itself so REPL output is formatted."""
+        return str(self)
+
+
 @dataclass(frozen=True)
 class Query:
     """A single captured database query."""
@@ -135,7 +143,7 @@ class Feel:
         """Formatted SQL of all queries, separated by blank lines."""
         self._execute()
         assert self._queries is not None
-        return "\n\n".join(_format_sql(q.sql) for q in self._queries)
+        return FormattedString("\n\n".join(_format_sql(q.sql) for q in self._queries))
 
     @property
     def tables(self) -> dict[str, int]:
@@ -169,7 +177,7 @@ class Feel:
         if self.tables:
             top_table, top_count = next(iter(self.tables.items()))
             lines.append(f" most accessed: {top_table} ({top_count})")
-        return "\n".join(lines)
+        return FormattedString("\n".join(lines))
 
     def to_dict(self) -> dict[str, Any]:
         """Structured output for programmatic consumption."""

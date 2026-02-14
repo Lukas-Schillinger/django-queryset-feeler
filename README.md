@@ -146,6 +146,16 @@ unique tables: 2
  most accessed: app_pizza (1)
 ```
 
+## Try it out
+
+Clone the repo and run the demo script to get a shell with sample data pre-loaded:
+
+    git clone https://github.com/lukas-schillinger/django-queryset-feeler.git
+    cd django-queryset-feeler
+    uv run demo.py
+
+This starts an interactive shell with `Feel`, the example Pizza/Topping models, and sample data ready to go.
+
 ## Context Manager
 
 Profile arbitrary code blocks without wrapping them in a function:
@@ -178,3 +188,5 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'project.settings'
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 ```
+
+**Django 5.2+:** If you're on Django 5.2 or later, `manage.py shell` [auto-imports models](https://docs.djangoproject.com/en/5.2/ref/django-admin/#shell) so you can skip the manual setup above and use dqf directly from the shell.
