@@ -117,3 +117,10 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 docstring-code-format = true
+
+[tool.ty.environment]
+python-version = "3.10"
+root = ["./src"]
+
+[tool.ty.src]
+exclude = ["tests/**"]
