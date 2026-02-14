@@ -1,0 +1,23 @@
+{% load test_tags %}
+
+{% for pizza in pizzas %}
+<tr>
+    <td>{{ pizza.name }}</td>
+    <td>
+    {% for topping in pizza.toppings.all %}
+        {% if forloop.last %}
+            {{ topping.name }}
+        {% else %}
+            {{ topping.name }},
+        {% endif %}
+    {% endfor %}
+    </td>
+    <td>
+    {% if pizza.toppings.all|is_vegetarian %}
+        vegetarian
+    {% else %}
+        not vegetarian
+    {% endif %}
+    </td>
+</tr>
+{% endfor %}

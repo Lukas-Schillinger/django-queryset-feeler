@@ -6,7 +6,12 @@ from sql_metadata import Parser as SQLParser
 from pygments import highlight
 from pygments.lexers import SqlLexer
 from pygments.formatters import HtmlFormatter, TerminalTrueColorFormatter
-from IPython.core.display import HTML, display
+try:
+    from IPython.core.display import HTML, display as ipython_display
+
+    _has_ipython = True
+except ImportError:
+    _has_ipython = False
 from time import perf_counter
 from django.db import connection, reset_queries
 from django.db.backends.base.base import BaseDatabaseWrapper
@@ -58,8 +63,8 @@ def highlight_query(query):
 
 def display_query(query):
     highlighted_query = highlight_query(query)
-    if is_notebook():
-        display(HTML(highlighted_query))
+    if _has_ipython and is_notebook():
+        ipython_display(HTML(highlighted_query))
     else:
         print(highlighted_query)
 

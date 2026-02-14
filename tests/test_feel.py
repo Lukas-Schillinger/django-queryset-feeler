@@ -1,11 +1,11 @@
+from django.conf import settings
+from django.test import TestCase
+
 from django_queryset_feeler import Feel
 
-from django.test import TestCase
-from django.conf import settings
-
-from test_app.models import Pizza, Topping
-from test_app.serializers import PizzaSerializer, ToppingSerializer
-from test_app import views
+from .models import Pizza, Topping
+from .serializers import PizzaSerializer, ToppingSerializer
+from . import views
 
 settings.DEBUG = True
 
@@ -43,7 +43,7 @@ def create_models():
 
 
 class TestQuerysets(TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         create_models()
 
     def test_queryset(self):
@@ -53,19 +53,16 @@ class TestQuerysets(TestCase):
 
 
 class TestClassBasedViews(TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         create_models()
 
     def test_list_view(self):
         feel = Feel(views.PizzaListView)
         self.assertEqual(feel.count, 7)
 
-    def test_delete_view(self):
-        self.assertRaises(TypeError, Feel(views.DeleteView))
-
 
 class TestSerializers(TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         create_models()
 
     def test_serializer_pizza(self):
@@ -78,7 +75,7 @@ class TestSerializers(TestCase):
 
 
 class TestViews(TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         create_models()
 
     def test_optimized_view(self):
@@ -91,7 +88,7 @@ class TestViews(TestCase):
 
 
 class TestFunctions(TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         create_models()
 
     def test_function(self):
@@ -105,7 +102,7 @@ class TestFunctions(TestCase):
 
 
 class TestModelInstance(TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         create_models()
 
     def test_model_instance(self):

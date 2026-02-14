@@ -5,12 +5,13 @@ from django.db.models.query import QuerySet, ModelIterable
 from django.db.models.base import ModelState
 from inspect import signature, isclass
 
-class Thing():
-    '''Determine the real type of a thing
 
-    A thing can be one of four types: 
+class Thing:
+    """Determine the real type of a thing
+
+    A thing can be one of four types:
     ['queryset', 'view', 'function', 'django_cbv', 'serializer']
-    '''
+    """
 
     def __init__(self, thing, execution_dict, *args, **kwargs):
         self.thing = thing
@@ -22,34 +23,38 @@ class Thing():
 
     def find_thing_type(self, thing) -> str:
         if type(thing) == QuerySet:
-            thing_type = 'queryset'
+            thing_type = "queryset"
         elif isclass(thing):
             if self.check_django_class_based_view(thing):
-                thing_type = 'django_cbv'
+                thing_type = "django_cbv"
             elif self.check_serializer(thing):
-                thing_type = 'serializer'
+                thing_type = "serializer"
             else:
-                raise TypeError('Invalid Class')
-        elif callable(thing): # all classes are callable but not all callables are classes
+                raise TypeError("Invalid Class")
+        elif callable(
+            thing
+        ):  # all classes are callable but not all callables are classes
             if self.check_django_view(thing):
-                thing_type = 'view'
+                thing_type = "view"
             else:
-                thing_type = 'function'
+                thing_type = "function"
         elif self.check_model_instance(thing):
-            thing_type = 'model_instance'
+            thing_type = "model_instance"
         else:
-            raise TypeError('Invalid Thing. Valid things are querysets, django class based views, serializers, django views, functions, and model instances.')
+            raise TypeError(
+                "Invalid Thing. Valid things are querysets, django class based views, serializers, django views, functions, and model instances."
+            )
         return thing_type
 
     def get_request_or_create(self) -> HttpRequest:
-        request = self.execution_dict['request']
+        request = self.execution_dict["request"]
         if request == None:
             request = HttpRequest()
         return request
 
     def check_model_instance(self, thing):
         try:
-            state = thing.__dict__['_state']
+            state = thing.__dict__["_state"]
             if type(state) == ModelState:
                 return True
             else:
@@ -59,9 +64,9 @@ class Thing():
 
     def check_django_view(self, thing):
         parameters = list(signature(thing).parameters)
-        if 'request' not in parameters:
+        if "request" not in parameters:
             return False
-        
+
         request = self.get_request_or_create()
         response = thing(request)
         if type(response) == HttpResponse:
@@ -94,35 +99,35 @@ class Thing():
 
     def check_serializer(self, thing):
         mro = thing.__mro__
-        valid_parent_class = 'rest_framework.serializers.ModelSerializer'
+        valid_parent_class = "rest_framework.serializers.ModelSerializer"
         if any(valid_parent_class in str(parent_class) for parent_class in mro):
             return True
         else:
             return False
 
     def find_executor_type(self, thing_type):
-        if thing_type == 'queryset':
+        if thing_type == "queryset":
             return self.execute_queryset
-        elif thing_type == 'view':
+        elif thing_type == "view":
             return self.execute_view
-        elif thing_type == 'function':
+        elif thing_type == "function":
             return self.execute_function
-        elif thing_type == 'django_cbv':
+        elif thing_type == "django_cbv":
             return self.execute_django_cbv
-        elif thing_type == 'serializer':
+        elif thing_type == "serializer":
             return self.execute_serializer
-        elif thing_type == 'model_instance':
+        elif thing_type == "model_instance":
             return self.execute_model_instance
         else:
-            raise TypeError(f'Invalid Type: {thing_type}')
+            raise TypeError(f"Invalid Type: {thing_type}")
 
     def execute_queryset(self, thing):
-        '''Run a Queryset
-        
+        """Run a Queryset
+
         when list() is called on a queryset the queryset's _result_cache
         is checked first. By calling list on the an instance of ModelIterable
-        we can be sure that the queries are actually being run. 
-        '''
+        we can be sure that the queries are actually being run.
+        """
         try:
             list(ModelIterable(thing))
         except Exception as e:
@@ -143,7 +148,7 @@ class Thing():
 
     def execute_django_cbv(self, thing):
         request = self.get_request_or_create()
-        request.method = 'GET'
+        request.method = "GET"
         try:
             response = thing.as_view()(request)
             response.render()
