@@ -40,3 +40,80 @@ ipython = ["ipython>=8.4.0"]
 [dependency-groups]
 dev = ["ruff>=0.11.0", "ty>=0.0.1"]
 test = ["djangorestframework>=3.14"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    # Core
+    "E",      # pycodestyle errors
+    "F",      # pyflakes (undefined names, unused imports)
+    "W",      # pycodestyle warnings
+
+    # Imports
+    "I",      # isort (import sorting and grouping)
+    "ICN",    # import-conventions (e.g. import numpy as np)
+    "TC",     # type-checking (move typing-only imports behind TYPE_CHECKING)
+
+    # Code quality
+    "N",      # pep8-naming conventions
+    "UP",     # pyupgrade (modernize syntax for target Python)
+    "B",      # flake8-bugbear (common bug patterns, mutable defaults, etc.)
+    "A",      # flake8-builtins (shadowing builtins like list, type, id)
+    "C4",     # flake8-comprehensions (simplify list/dict/set comprehensions)
+    "SIM",    # flake8-simplify (if/else simplification, context managers, etc.)
+    "PIE",    # flake8-pie (misc simplifications)
+    "RET",    # flake8-return (unnecessary else after return/break/continue)
+    "RSE",    # flake8-raise (unnecessary parentheses on raised exceptions)
+    "FLY",    # flynt (string concatenation -> f-strings)
+    "PERF",   # perflint (performance anti-patterns)
+    "FURB",   # refurb (additional modernization rules)
+
+    # Django
+    "DJ",     # flake8-django
+
+    # Security
+    "S",      # flake8-bandit (security: hardcoded passwords, SQL injection, etc.)
+
+    # Error handling
+    "TRY",    # tryceratops (exception handling anti-patterns)
+
+    # Cleanup
+    "ERA",    # eradicate (commented-out code)
+    "ARG",    # flake8-unused-arguments
+    "T20",    # flake8-print (print statements)
+
+    # Type annotations
+    "ANN",    # flake8-annotations (missing type annotations)
+
+    # Docstrings
+    "D",      # pydocstyle (docstring conventions)
+
+    # Ruff's own
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "E501",   # line-too-long -- handled by formatter
+    "D100",   # missing docstring in public module
+    "D104",   # missing docstring in public package (__init__)
+    "D203",   # one-blank-line-before-class -- conflicts with D211
+    "D213",   # multi-line-docstring-summary-second-line -- conflicts with D212
+    "TRY003", # long exception messages -- too strict for a small library
+    "S101",   # assert -- we'll allow per-file instead
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**" = [
+    "S101",   # assert is expected in tests
+    "D",      # no docstring requirements in tests
+    "ANN",    # no annotation requirements in tests
+    "ARG",    # unused args fine in test setUp etc.
+]
+"runtests.py" = ["D", "ANN", "T20"]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
