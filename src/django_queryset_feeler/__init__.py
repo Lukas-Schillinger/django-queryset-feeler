@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["Feel", "FormattedString", "Query"]
+
 import statistics
 from collections import Counter
 from contextlib import contextmanager
@@ -23,14 +25,6 @@ if TYPE_CHECKING:
 
     from django.http import HttpRequest
 
-try:
-    from IPython.core.display import HTML
-    from IPython.core.display import display as ipython_display
-
-    _has_ipython = True
-except ImportError:
-    _has_ipython = False
-
 
 def _is_notebook() -> bool:
     """Detect if code is running in a Jupyter notebook."""
@@ -51,15 +45,6 @@ def _format_sql(sql: str) -> str:
         formatter = TerminalTrueColorFormatter(style="one-dark")
 
     return highlight(code=formatted, lexer=SqlLexer(), formatter=formatter)
-
-
-def _display_sql(sql: str) -> None:
-    """Display formatted SQL, using IPython display if in a notebook."""
-    highlighted = _format_sql(sql)
-    if _has_ipython and _is_notebook():
-        ipython_display(HTML(highlighted))
-    else:
-        print(highlighted)  # noqa: T201
 
 
 def _extract_table(sql: str) -> str:
