@@ -4,9 +4,9 @@
 
 # django-queryset-feeler
 
-Get a better feel for how your django views and serializers are accessing your app's database. Use django-queryset-feeler (dqf) to measure the count, execution time, and raw SQL of your queries from the command line, ipython shell, or jupyter notebook without any configuration.
+Measure the count, execution time, and raw SQL of your django queries from the command line, ipython shell, or jupyter notebook. No configuration required.
 
-This extension is used differently than the popular [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar) in a few ways. First, dqf can be used to profile more than just views. You can pass functions, querysets, model instances, views, class based views, and [django-rest-framework](https://github.com/encode/django-rest-framework/) serializers to dqf for profiling. Second, dqf profiles queries with only one object and can be used in the command line, ipython shell, or jupyter notebook. This is especially useful for prototyping or learning how django querysets are executed.
+Unlike [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar), dqf isn't limited to views. Pass it functions, querysets, model instances, class based views, or [DRF](https://github.com/encode/django-rest-framework/) serializers. It profiles with a single object and works outside the browser, making it great for prototyping or learning how django querysets behave.
 
 ## Installation
 
@@ -26,7 +26,7 @@ pip install django-queryset-feeler
 from django_queryset_feeler import Feel
 ```
 
-Create a `Feel()` instance by passing it any one of the following objects from your django project. No other configuration is required.
+Pass `Feel()` any of the following:
 
 | Query Type | About |
 | :--- | :--- |
@@ -53,7 +53,7 @@ Profile your queries using any of the following properties.
 
 The below example illustrates an easy to make django queryset mistake called an 'n + 1 query' and how to use dqf to find it.
 
-#### `project / app / models.py`
+#### `app/models.py`
 
 ```python
 class Topping(models.Model):
@@ -65,7 +65,7 @@ class Pizza(models.Model):
     toppings = models.ManyToManyField(Topping)
 ```
 
-#### `project / app / views.py`
+#### `app/views.py`
 
 ```python
 def pizza_list(request):
@@ -73,7 +73,7 @@ def pizza_list(request):
     return render(request, 'pizza_list.html', context={'pizzas': pizzas})
 ```
 
-#### `project / app / templates / app / pizza_list.html`
+#### `app/templates/app/pizza_list.html`
 
 ```html
 {% for pizza in pizzas %}
@@ -103,9 +103,9 @@ def pizza_list(request):
 | hawaiian | pineapple, smoked ham | 🥩 |
 | meat lovers | pepperoni, andouille sausage, capicola | 🥩 |
 
-#### `project / dqf.ipynb`
+#### `dqf.ipynb`
 
-Note that the `DEBUG` setting in `project / settings.py` must be `True` for dqf to work. `DEBUG` is enabled by default when you create a django project.
+The `DEBUG` setting must be `True` for dqf to work (it's on by default in new django projects).
 
 ```python
 from django_queryset_feeler import Feel
@@ -118,13 +118,13 @@ print(f'average duration: {feel.time} s')
 print(feel.sql)
 ```
 
-In the above example django queried the database a total of 4 times: once to get a list of pizzas and then again for each pizza to find its toppings. As more pizzas are added to the menu n + 1 queries would be made to the database where n is the number of pizzas.
+Django hit the database 4 times: once for the list of pizzas, then once per pizza to get its toppings. As the menu grows, that's n + 1 queries where n is the number of pizzas.
 
-Note that even though the pizza's toppings are accessed once in column 2 for the name and again in column 3 to determine if the pizza is vegetarian the database is still accessed only once in this period. This is because after evaluation the results are stored in the queryset object and used for subsequent calls.
+Even though toppings are accessed twice in the template (column 2 for names, column 3 for the vegetarian check), django only queries once — evaluated results are cached on the queryset.
 
-A more efficient way to render this template would be to fetch the list of pizzas and then query the toppings table once to get all the toppings for all the pizzas. Django makes this easy using [prefetch_related()](https://docs.djangoproject.com/en/5.1/ref/models/querysets/#prefetch-related).
+Fix this with [prefetch_related()](https://docs.djangoproject.com/en/5.1/ref/models/querysets/#prefetch-related), which fetches all toppings in a single extra query:
 
-#### `project / app / views.py`
+#### `app/views.py`
 
 ```python
 def pizza_list(request):
@@ -132,7 +132,7 @@ def pizza_list(request):
     return render(request, 'pizza_list.html', context={'pizzas': pizzas})
 ```
 
-#### `project / dqf.ipynb`
+#### `dqf.ipynb`
 
 ```python
 feel = Feel(pizza_list)
@@ -162,7 +162,7 @@ print(f.report)   # full summary
 
 ## Run Django in a Jupyter Notebook
 
-#### `project / dqf.ipynb`
+#### `dqf.ipynb`
 
 ```python
 # re-import modules when a cell is run. This ensures that changes made to
