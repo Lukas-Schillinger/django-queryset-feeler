@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = ["Feel", "FormattedString", "Query"]
+__all__ = ["Feel", "FormattedString"]
 
 import statistics
 from collections import Counter
@@ -110,13 +110,6 @@ class Feel:
         ]
 
     @property
-    def queries(self) -> list[Query]:
-        """Individual queries from the execution."""
-        self._execute()
-        assert self._queries is not None
-        return list(self._queries)
-
-    @property
     def count(self) -> int:
         """Number of database queries executed."""
         self._execute()
@@ -165,19 +158,22 @@ class Feel:
         return FormattedString("\n".join(lines))
 
     def to_dict(self) -> dict[str, Any]:
-        """Structured output for programmatic consumption."""
+        """Structured output for programmatic consumption.
+
+        Helpful for AI!
+        """
         return {
             "type": self._thing.thing_type,
             "count": self.count,
             "time_ms": round(self.time * 1000, 3),
             "tables": self.tables,
             "queries": [
-                {"sql": q.sql, "time": q.time, "table": q.table} for q in self.queries
+                {"sql": q.sql, "time": q.time, "table": q.table} for q in self._queries
             ],
         }
 
     def __repr__(self) -> str:
-        """Show key stats at a glance in REPL/notebook."""
+        """REPL/notebook printing."""
         return (
             f"Feel(type={self._thing.thing_type}, count={self.count}, "
             f"time={round(self.time * 1000, 3)}ms, tables={len(self.tables)})"

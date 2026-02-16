@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.test import TestCase
 
-from django_queryset_feeler import Feel, Query
+from django_queryset_feeler import Feel
 
 from . import views
 from .models import Pizza, Topping
@@ -137,15 +137,14 @@ class TestProperties(TestCase):
         self.assertIsInstance(result, str)
         self.assertIn("query count: 1", result)
 
-    def test_queries(self):
-        result = self.feel.queries
+    def test_queries_in_to_dict(self):
+        result = self.feel.to_dict()["queries"]
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), self.feel.count)
         for q in result:
-            self.assertIsInstance(q, Query)
-            self.assertIsInstance(q.sql, str)
-            self.assertIsInstance(q.time, str)
-            self.assertIsInstance(q.table, str)
+            self.assertIsInstance(q["sql"], str)
+            self.assertIsInstance(q["time"], str)
+            self.assertIsInstance(q["table"], str)
 
 
 class TestToDict(TestCase):

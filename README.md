@@ -46,8 +46,7 @@ Profile your queries using any of the following properties.
 | `feel.sql`       | Execute the query and return formatted, syntax-highlighted SQL.                                                             |
 | `feel.tables`    | Execute the query and return a dictionary of each table and how many times it was accessed.                                 |
 | `feel.report`    | Return a human-readable summary of query time, count, and table counts.                                                     |
-| `feel.queries`   | Return a list of individual `Query` objects with `sql`, `time`, and `table` attributes.                                     |
-| `feel.to_dict()` | Return structured output for programmatic consumption.                                                                      |
+| `feel.to_dict()` | Return structured output for programmatic consumption including individual query details.                                   |
 
 ## Example
 
