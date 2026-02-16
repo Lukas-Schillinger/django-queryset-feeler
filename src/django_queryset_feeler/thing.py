@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from asyncio import iscoroutinefunction
 from inspect import isclass, signature
 from typing import TYPE_CHECKING, Any
 
+from asgiref.sync import async_to_sync
 from django.db.models import Model
 from django.db.models.query import ModelIterable, QuerySet
 from django.http import HttpRequest
@@ -90,18 +92,28 @@ class Thing:
 
     def _execute_view(self) -> None:
         """Execute a function-based view with an HttpRequest."""
-        self.thing(self._get_request())
+        func = self.thing
+        if iscoroutinefunction(func):
+            func = async_to_sync(func)
+        func(self._get_request())
 
     def _execute_function(self) -> None:
         """Execute a plain function with no arguments."""
-        self.thing()
+        func = self.thing
+        if iscoroutinefunction(func):
+            func = async_to_sync(func)
+        func()
 
     def _execute_cbv(self) -> None:
         """Execute a class-based view via as_view()."""
         request = self._get_request()
         request.method = "GET"
-        response = self.thing.as_view()(request)
-        response.render()
+        view_func = self.thing.as_view()
+        if iscoroutinefunction(view_func):
+            view_func = async_to_sync(view_func)
+        response = view_func(request)
+        if hasattr(response, "render"):
+            response.render()
 
     def _execute_serializer(self) -> None:
         """Execute a DRF serializer against all instances of its Meta.model."""

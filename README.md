@@ -37,6 +37,8 @@ Pass `Feel()` any of the following:
 | `Feel(model_instance)` | Execute a model instance by calling it again from the database using `.refresh_from_db()`                                                         |
 | `Feel(function)`       | Execute a function                                                                                                                                |
 
+Async callables work transparently — pass an `async def` function, async view, or async CBV to `Feel()` and it profiles them the same way. For async code blocks, wrap them in an `async def` and pass that to `Feel()` instead of `Feel.profile()`, which is sync-only.
+
 Profile your queries using any of the following properties.
 
 | Property         | About                                                                                                                       |

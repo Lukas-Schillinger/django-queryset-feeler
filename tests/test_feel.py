@@ -101,6 +101,53 @@ class TestFunctions(TestCase):
         self.assertEqual(feel.count, 4)
 
 
+class TestAsyncFunctions(TestCase):
+    def setUp(self):
+        create_models()
+
+    def test_async_function_acount(self):
+        async def async_example():
+            await Pizza.objects.acount()
+
+        feel = Feel(async_example)
+        self.assertEqual(feel.count, 1)
+
+    def test_async_function_n_plus_one(self):
+        async def async_n_plus_one():
+            async for pizza in Pizza.objects.all():
+                await pizza.toppings.acount()
+
+        feel = Feel(async_n_plus_one)
+        self.assertEqual(feel.count, 4)
+
+    def test_async_function_aget(self):
+        async def async_aget():
+            await Pizza.objects.aget(name="Hawaiian")
+
+        feel = Feel(async_aget)
+        self.assertEqual(feel.count, 1)
+
+
+class TestAsyncViews(TestCase):
+    def setUp(self):
+        create_models()
+
+    def test_async_fbv(self):
+        feel = Feel(views.pizza_list_async)
+        # 1 query for all pizzas + 3 queries for toppings (N+1)
+        self.assertEqual(feel.count, 4)
+
+
+class TestAsyncClassBasedViews(TestCase):
+    def setUp(self):
+        create_models()
+
+    def test_async_cbv(self):
+        feel = Feel(views.AsyncPizzaListView)
+        # 1 acount() + 1 afirst()
+        self.assertEqual(feel.count, 2)
+
+
 class TestModelInstance(TestCase):
     def setUp(self):
         create_models()
