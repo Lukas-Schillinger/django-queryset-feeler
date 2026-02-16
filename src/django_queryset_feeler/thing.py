@@ -35,7 +35,14 @@ def _has_request_param(func: Callable[..., Any]) -> bool:
 HANDLERS: list[tuple[Callable[[Any], bool], str]] = [
     (lambda t: isinstance(t, QuerySet), "queryset"),
     (lambda t: isclass(t) and issubclass(t, View), "cbv"),
-    (lambda t: _BaseSerializer is not None and isclass(t) and issubclass(t, _BaseSerializer), "serializer"),
+    (
+        lambda t: (
+            _BaseSerializer is not None
+            and isclass(t)
+            and issubclass(t, _BaseSerializer)
+        ),
+        "serializer",
+    ),
     (lambda t: isinstance(t, Model), "model_instance"),
     (lambda t: callable(t) and _has_request_param(t), "view"),
     (lambda t: callable(t), "function"),

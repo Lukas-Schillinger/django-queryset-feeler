@@ -120,7 +120,7 @@ provides-extras = ["ipython"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "ruff", specifier = ">=0.11.0" },
+    { name = "ruff", specifier = ">=0.15.1" },
     { name = "ty", specifier = ">=0.0.1" },
 ]
 test = [{ name = "djangorestframework", specifier = ">=3.14" }]
