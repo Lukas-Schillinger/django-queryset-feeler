@@ -1,4 +1,9 @@
+import importlib
+import sys
+from unittest.mock import MagicMock, patch
+
 from django.conf import settings
+from django.http import HttpRequest
 from django.test import TestCase
 
 from django_queryset_feeler import Feel
@@ -85,6 +90,13 @@ class TestViews(TestCase):
     def test_unoptimized_view(self):
         feel = Feel(views.pizza_list_unoptimized)
         self.assertEqual(feel.count, 7)
+
+    def test_view_with_custom_post_request(self):
+        request = HttpRequest()
+        request.method = "POST"
+        request.POST["q"] = "test"
+        feel = Feel(views.pizza_list_optimized, request=request)
+        self.assertEqual(feel.count, 2)
 
 
 class TestFunctions(TestCase):
@@ -184,6 +196,10 @@ class TestProperties(TestCase):
         self.assertIsInstance(result, str)
         self.assertIn("query count: 1", result)
 
+    def test_formatted_string_repr(self):
+        result = repr(self.feel.sql)
+        self.assertIsInstance(result, str)
+
     def test_queries_in_to_dict(self):
         result = self.feel.to_dict()["queries"]
         self.assertIsInstance(result, list)
@@ -251,3 +267,76 @@ class TestCaching(TestCase):
         first = feel.count
         second = feel.count
         self.assertEqual(first, second)
+
+    def test_time_is_cached(self):
+        feel = Feel(Pizza.objects.all(), iterations=2)
+        first = feel.time
+        second = feel.time
+        self.assertEqual(first, second)
+
+
+class TestExtractTable(TestCase):
+    def test_value_error(self):
+        from django_queryset_feeler import _extract_table
+
+        with patch("django_queryset_feeler.SQLParser", side_effect=ValueError):
+            self.assertEqual(_extract_table("SELECT 1"), "<unknown>")
+
+
+class TestSignatureFailure(TestCase):
+    def test_uninspectable_callable_is_function(self):
+        with patch("django_queryset_feeler.thing.signature", side_effect=ValueError):
+            feel = Feel(lambda: None)
+        self.assertEqual(feel._thing.thing_type, "function")
+
+
+class TestDrfOptional(TestCase):
+    def test_drf_not_installed(self):
+        import django_queryset_feeler.thing as thing_mod
+
+        with patch.dict(sys.modules, {"rest_framework.serializers": None}):
+            importlib.reload(thing_mod)
+            self.assertIsNone(thing_mod._BaseSerializer)
+        importlib.reload(thing_mod)
+
+
+class TestNotebookDetection(TestCase):
+    def test_ipython_not_installed(self):
+        from django_queryset_feeler import _is_notebook
+
+        with patch.dict(sys.modules, {"IPython": None}):
+            self.assertFalse(_is_notebook())
+
+    def test_shell_is_none(self):
+        from django_queryset_feeler import _is_notebook
+
+        mock_ipython = MagicMock()
+        mock_ipython.get_ipython.return_value = None
+        with patch.dict(sys.modules, {"IPython": mock_ipython}):
+            self.assertFalse(_is_notebook())
+
+    def test_in_notebook(self):
+        from django_queryset_feeler import _is_notebook
+
+        class ZMQInteractiveShell:
+            pass
+
+        mock_ipython = MagicMock()
+        mock_ipython.get_ipython.return_value = ZMQInteractiveShell()
+        with patch.dict(sys.modules, {"IPython": mock_ipython}):
+            self.assertTrue(_is_notebook())
+
+    def test_html_formatter_in_notebook(self):
+        create_models()
+        feel = Feel(Pizza.objects.all())
+        with patch("django_queryset_feeler._is_notebook", return_value=True):
+            result = feel.sql
+        self.assertIn("<style", str(result))
+
+
+class TestEmptyReport(TestCase):
+    def test_report_no_queries(self):
+        feel = Feel(lambda: None)
+        report = feel.report
+        self.assertIn("query count: 0", report)
+        self.assertNotIn("most accessed", report)
