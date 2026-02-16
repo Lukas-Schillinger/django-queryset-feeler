@@ -247,6 +247,36 @@ class TestProfile(TestCase):
         self.assertEqual(f.count, 1)
         self.assertIn("tests_pizza", f.tables)
 
+    def test_profile_to_dict(self):
+        with Feel.profile() as f:
+            list(Pizza.objects.all())
+        result = f.to_dict()
+        self.assertEqual(result["type"], "profile")
+        self.assertEqual(result["count"], 1)
+        self.assertIn("time_ms", result)
+        self.assertIn("tables", result)
+        self.assertIsInstance(result["queries"], list)
+
+    def test_profile_report(self):
+        with Feel.profile() as f:
+            list(Pizza.objects.all())
+        report = f.report
+        self.assertIn("query count: 1", report)
+        self.assertIn("duration:", report)
+
+    def test_profile_repr(self):
+        with Feel.profile() as f:
+            list(Pizza.objects.all())
+        result = repr(f)
+        self.assertTrue(result.startswith("Feel("))
+        self.assertIn("type=profile", result)
+
+    def test_profile_time(self):
+        with Feel.profile() as f:
+            list(Pizza.objects.all())
+        self.assertIsInstance(f.time, float)
+        self.assertGreater(f.time, 0)
+
 
 class TestInvalidThing(TestCase):
     def test_invalid_thing(self):
@@ -340,3 +370,35 @@ class TestEmptyReport(TestCase):
         report = feel.report
         self.assertIn("query count: 0", report)
         self.assertNotIn("most accessed", report)
+
+
+class TestDebugFalseWarning(TestCase):
+    def setUp(self):
+        create_models()
+        self._original_debug = settings.DEBUG
+
+    def tearDown(self):
+        settings.DEBUG = self._original_debug
+
+    def test_warning_on_execute(self):
+        feel = Feel(Pizza.objects.all())
+        settings.DEBUG = False
+        with self.assertWarns(UserWarning, msg="settings.DEBUG is False"):
+            feel.count  # noqa: B018
+
+    def test_warning_on_profile(self):
+        settings.DEBUG = False
+        with (
+            self.assertWarns(UserWarning, msg="settings.DEBUG is False"),
+            Feel.profile(),
+        ):
+            list(Pizza.objects.all())
+
+    def test_no_warning_when_debug_true(self):
+        settings.DEBUG = True
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            feel = Feel(Pizza.objects.all())
+            feel.count  # noqa: B018

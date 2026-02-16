@@ -5,6 +5,7 @@ from __future__ import annotations
 __all__ = ["Feel", "FormattedString"]
 
 import statistics
+import warnings
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 import sqlparse
+from django.conf import settings
 from django.db import connection, reset_queries
 from pygments import highlight
 from pygments.formatters import HtmlFormatter, TerminalTrueColorFormatter
@@ -76,6 +78,17 @@ class Query:
     table: str
 
 
+def _check_debug() -> None:
+    """Warn if Django DEBUG is False, which prevents query logging."""
+    if not settings.DEBUG:
+        warnings.warn(
+            "settings.DEBUG is False — Django will not log queries. "
+            "Set DEBUG = True to enable profiling.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 class Feel:
     """Profile Django ORM query execution.
 
@@ -96,7 +109,7 @@ class Feel:
         iterations: int = 32,
         request: HttpRequest | None = None,
     ) -> None:
-        self._thing = Thing(thing, request=request)
+        self._thing: Thing | None = Thing(thing, request=request)
         self._iterations = iterations
         self._queries: list[Query] | None = None
         self._times: list[float] | None = None
@@ -105,6 +118,8 @@ class Feel:
         """Execute the thing once and snapshot the queries."""
         if self._queries is not None:
             return
+        _check_debug()
+        assert self._thing is not None
         reset_queries()
         self._thing.execute()
         self._queries = [
@@ -160,13 +175,18 @@ class Feel:
             lines.append(f" most accessed: {top_table} ({top_count})")
         return FormattedString("\n".join(lines))
 
+    @property
+    def _type_name(self) -> str:
+        """Return the type label for this Feel instance."""
+        return self._thing.thing_type if self._thing else "profile"
+
     def to_dict(self) -> dict[str, Any]:
         """Structured output for programmatic consumption.
 
         Helpful for AI!
         """
         return {
-            "type": self._thing.thing_type,
+            "type": self._type_name,
             "count": self.count,
             "time_ms": round(self.time * 1000, 3),
             "tables": self.tables,
@@ -178,7 +198,7 @@ class Feel:
     def __repr__(self) -> str:
         """REPL/notebook printing."""
         return (
-            f"Feel(type={self._thing.thing_type}, count={self.count}, "
+            f"Feel(type={self._type_name}, count={self.count}, "
             f"time={round(self.time * 1000, 3)}ms, tables={len(self.tables)})"
         )
 
@@ -195,12 +215,17 @@ class Feel:
                     list(p.toppings.all())
             print(f.count)
         """
+        _check_debug()
         reset_queries()
         result = cls.__new__(cls)
+        result._thing = None
         result._queries = None
         result._times = None
-        result._iterations = 32
+        result._iterations = 1
+        t0 = perf_counter()
         yield result
+        duration = perf_counter() - t0
+        result._times = [duration]
         # Snapshot queries after the block executes
         result._queries = [
             Query(sql=q["sql"], time=q["time"], table=_extract_table(q["sql"]))
