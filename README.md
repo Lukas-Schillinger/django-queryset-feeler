@@ -4,7 +4,7 @@
 
 # django-queryset-feeler
 
-Measure the count, execution time, and raw SQL of your django queries from the command line, ipython shell, or jupyter notebook. No configuration required.
+Get a feel for how Django queries your databse. Measure the count, execution time, and raw SQL of ORM queries from the command line, ipython shell, or jupyter notebook. No configuration required.
 
 Unlike [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar), dqf isn't limited to views. Pass it functions, querysets, model instances, class based views, or [DRF](https://github.com/encode/django-rest-framework/) serializers. It profiles with a single object and works outside the browser, making it great for prototyping or learning how django querysets behave.
 
@@ -28,26 +28,26 @@ from django_queryset_feeler import Feel
 
 Pass `Feel()` any of the following:
 
-| Query Type | About |
-| :--- | :--- |
-| `Feel(view)` | Execute a view using an empty HttpRequest. Add a `request` keyword argument to supply your own request. |
+| Query Type             | About                                                                                                                                             |
+| :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Feel(view)`           | Execute a view using an empty HttpRequest. Add a `request` keyword argument to supply your own request.                                           |
 | `Feel(ClassBasedView)` | Execute an eligible class based view using an empty HttpRequest with a `GET` method. Add a `request` keyword argument to supply your own request. |
-| `Feel(serializer)` | Execute a serializer on the model specified by the serializer's Meta class. |
-| `Feel(queryset)` | Execute a queryset |
-| `Feel(model_instance)` | Execute a model instance by calling it again from the database using `.refresh_from_db()` |
-| `Feel(function)` | Execute a function |
+| `Feel(serializer)`     | Execute a serializer on the model specified by the serializer's Meta class.                                                                       |
+| `Feel(queryset)`       | Execute a queryset                                                                                                                                |
+| `Feel(model_instance)` | Execute a model instance by calling it again from the database using `.refresh_from_db()`                                                         |
+| `Feel(function)`       | Execute a function                                                                                                                                |
 
 Profile your queries using any of the following properties.
 
-| Property | About |
-| :--- | :--- |
-| `feel.time` | Repeat the query 32 times (adjust with the `iterations` keyword argument) and return the average query duration in seconds. |
-| `feel.count` | Execute the query and return the number of times that the database was accessed. |
-| `feel.sql` | Execute the query and return formatted, syntax-highlighted SQL. |
-| `feel.tables` | Execute the query and return a dictionary of each table and how many times it was accessed. |
-| `feel.report` | Return a human-readable summary of query time, count, and table counts. |
-| `feel.queries` | Return a list of individual `Query` objects with `sql`, `time`, and `table` attributes. |
-| `feel.to_dict()` | Return structured output for programmatic consumption. |
+| Property         | About                                                                                                                       |
+| :--------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+| `feel.time`      | Repeat the query 32 times (adjust with the `iterations` keyword argument) and return the average query duration in seconds. |
+| `feel.count`     | Execute the query and return the number of times that the database was accessed.                                            |
+| `feel.sql`       | Execute the query and return formatted, syntax-highlighted SQL.                                                             |
+| `feel.tables`    | Execute the query and return a dictionary of each table and how many times it was accessed.                                 |
+| `feel.report`    | Return a human-readable summary of query time, count, and table counts.                                                     |
+| `feel.queries`   | Return a list of individual `Query` objects with `sql`, `time`, and `table` attributes.                                     |
+| `feel.to_dict()` | Return structured output for programmatic consumption.                                                                      |
 
 ## Example
 
@@ -78,30 +78,23 @@ def pizza_list(request):
 ```html
 {% for pizza in pizzas %}
 <tr>
-    <td>{{ pizza.name }}</td>
-    <td>
-    {% for topping in pizza.toppings.all %}
-        {{ topping.name }}
-    {% endfor %}
-    </td>
-    <td>
-    {% with last=pizza.toppings.all|dictsort:'vegetarian'|last %}
-        {% if last.vegetarian %}
-            🌱
-        {% else %}
-            🥩
-        {% endif %}
-    {% endwith %}
-    </td>
+	<td>{{ pizza.name }}</td>
+	<td>
+		{% for topping in pizza.toppings.all %} {{ topping.name }} {% endfor %}
+	</td>
+	<td>
+		{% with last=pizza.toppings.all|dictsort:'vegetarian'|last %} {% if
+		last.vegetarian %} 🌱 {% else %} 🥩 {% endif %} {% endwith %}
+	</td>
 </tr>
 {% endfor %}
 ```
 
-| Pizza | Toppings | |
-| ---: | --- | --- |
-| mediterranean | roasted eggplant, balsamic glaze | 🌱 |
-| hawaiian | pineapple, smoked ham | 🥩 |
-| meat lovers | pepperoni, andouille sausage, capicola | 🥩 |
+|         Pizza | Toppings                               |     |
+| ------------: | -------------------------------------- | --- |
+| mediterranean | roasted eggplant, balsamic glaze       | 🌱  |
+|      hawaiian | pineapple, smoked ham                  | 🥩  |
+|   meat lovers | pepperoni, andouille sausage, capicola | 🥩  |
 
 #### `dqf.ipynb`
 
