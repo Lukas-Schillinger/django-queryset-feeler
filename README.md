@@ -4,9 +4,9 @@
 
 # django-queryset-feeler
 
-Get a feel for how Django queries your databse. Measure the count, execution time, and raw SQL of ORM queries from the command line, ipython shell, or jupyter notebook. No configuration required.
+Get a feel for how Django queries your database. Profile query count, execution time, and raw SQL from the command line, IPython, or Jupyter. No configuration required.
 
-Unlike [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar), dqf isn't limited to views. Pass it functions, querysets, model instances, class based views, or [DRF](https://github.com/encode/django-rest-framework/) serializers. It profiles with a single object and works outside the browser, making it great for prototyping or learning how django querysets behave.
+Unlike [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar), dqf isn't limited to views. Pass it functions, querysets, model instances, class-based views, or [DRF](https://github.com/encode/django-rest-framework/) serializers. It profiles a single callable and works outside the browser making it useful for prototyping or learning how Django querysets work.
 
 ## Installation
 
@@ -28,31 +28,33 @@ from django_queryset_feeler import Feel
 
 Pass `Feel()` any of the following:
 
-| Query Type             | About                                                                                                                                             |
-| :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Feel(view)`           | Execute a view using an empty HttpRequest. Add a `request` keyword argument to supply your own request.                                           |
-| `Feel(ClassBasedView)` | Execute an eligible class based view using an empty HttpRequest with a `GET` method. Add a `request` keyword argument to supply your own request. |
-| `Feel(serializer)`     | Execute a serializer on the model specified by the serializer's Meta class.                                                                       |
-| `Feel(queryset)`       | Execute a queryset                                                                                                                                |
-| `Feel(model_instance)` | Execute a model instance by calling it again from the database using `.refresh_from_db()`                                                         |
-| `Feel(function)`       | Execute a function                                                                                                                                |
+| Query Type             | About                                                               |
+| :--------------------- | :------------------------------------------------------------------ |
+| `Feel(view)`           | Profile a function-based view with an empty `HttpRequest`.          |
+| `Feel(ClassBasedView)` | Profile a class-based view with an empty `GET` request.             |
+| `Feel(serializer)`     | Profile a DRF serializer against all instances of its `Meta.model`. |
+| `Feel(queryset)`       | Profile a queryset.                                                 |
+| `Feel(model_instance)` | Re-fetch the instance via `.refresh_from_db()`.                     |
+| `Feel(function)`       | Profile a plain function.                                           |
 
-Async callables work transparently — pass an `async def` function, async view, or async CBV to `Feel()` and it profiles them the same way. For async code blocks, wrap them in an `async def` and pass that to `Feel()` instead of `Feel.profile()`, which is sync-only.
+Views and CBVs use an empty `HttpRequest` by default. Pass `request=` to supply your own.
 
-Profile your queries using any of the following properties.
+Async functions, views, and CBVs are all supported. However, `Feel.profile()` is sync-only; wrap async code blocks in an `async def` instead.
 
-| Property         | About                                                                                                                       |
-| :--------------- | :-------------------------------------------------------------------------------------------------------------------------- |
-| `feel.time`      | Repeat the query 32 times (adjust with the `iterations` keyword argument) and return the average query duration in seconds. |
-| `feel.count`     | Execute the query and return the number of times that the database was accessed.                                            |
-| `feel.sql`       | Execute the query and return formatted, syntax-highlighted SQL.                                                             |
-| `feel.tables`    | Execute the query and return a dictionary of each table and how many times it was accessed.                                 |
-| `feel.report`    | Return a human-readable summary of query time, count, and table counts.                                                     |
-| `feel.to_dict()` | Return structured output for programmatic consumption including individual query details.                                   |
+Profile your queries with these properties:
+
+| Property         | About                                                                           |
+| :--------------- | :------------------------------------------------------------------------------ |
+| `feel.count`     | The number of database queries executed.                                        |
+| `feel.time`      | Average execution time in seconds over 32 runs (configurable via `iterations`). |
+| `feel.sql`       | Formatted, syntax-highlighted SQL for all queries.                              |
+| `feel.tables`    | Dictionary mapping each table to its access count.                              |
+| `feel.report`    | Human-readable summary of time, count, and tables.                              |
+| `feel.to_dict()` | Machine-readable dict with all query details.                                   |
 
 ## Example
 
-The below example illustrates an easy to make django queryset mistake called an 'n + 1 query' and how to use dqf to find it.
+This example illustrates an easy-to-make Django queryset mistake called an "n + 1 query" and how to use dqf to find it.
 
 #### `app/models.py`
 
@@ -99,7 +101,7 @@ def pizza_list(request):
 
 #### `dqf.ipynb`
 
-The `DEBUG` setting must be `True` for dqf to work (it's on by default in new django projects).
+The `DEBUG` setting must be `True` for dqf to work (it's on by default in new Django projects).
 
 ```python
 from django_queryset_feeler import Feel
@@ -112,9 +114,9 @@ print(f'average duration: {feel.time} s')
 print(feel.sql)
 ```
 
-Django hit the database 4 times: once for the list of pizzas, then once per pizza to get its toppings. As the menu grows, that's n + 1 queries where n is the number of pizzas.
+Django hits the database 4 times: once for the list of pizzas, then once per pizza to get its toppings. As the menu grows, that's n + 1 queries where n is the number of pizzas.
 
-Even though toppings are accessed twice in the template (column 2 for names, column 3 for the vegetarian check), django only queries once — evaluated results are cached on the queryset.
+Even though toppings are accessed twice in the template (column 2 for names, column 3 for the vegetarian check), Django only queries once — evaluated results are cached on the queryset.
 
 Fix this with [prefetch_related()](https://docs.djangoproject.com/en/5.1/ref/models/querysets/#prefetch-related), which fetches all toppings in a single extra query:
 
@@ -170,7 +172,7 @@ print(f.report)   # full summary
 
 ```python
 # re-import modules when a cell is run. This ensures that changes made to
-# the django app are synced with your notebook
+# the Django app are synced with your notebook
 %load_ext autoreload
 %autoreload 2
 
