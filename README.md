@@ -1,5 +1,5 @@
 [![Python](https://img.shields.io/pypi/pyversions/django-queryset-feeler.svg?style=flat-square)](https://pypi.python.org/pypi/django-queryset-feeler)
-[![Django](https://img.shields.io/badge/django-4.2%20%7C%205.0%20%7C%205.1%20%7C%205.2-blue?style=flat-square)](https://www.djangoproject.com/)
+[![Django](https://img.shields.io/badge/django-4.2%20%7C%205.0%20%7C%205.1%20%7C%205.2%20%7C%206.0-blue?style=flat-square)](https://www.djangoproject.com/)
 ![Coverage](coverage.svg)
 
 # django-queryset-feeler
