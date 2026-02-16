@@ -16,13 +16,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-def _is_drf_serializer(cls: type) -> bool:
-    """Check if cls is a DRF serializer using issubclass, not string matching."""
-    try:
-        from rest_framework.serializers import BaseSerializer
-    except ImportError:
-        return False
-    return issubclass(cls, BaseSerializer)
+try:
+    from rest_framework.serializers import BaseSerializer as _BaseSerializer
+except ImportError:
+    _BaseSerializer = None
 
 
 def _has_request_param(func: Callable[..., Any]) -> bool:
@@ -38,7 +35,7 @@ def _has_request_param(func: Callable[..., Any]) -> bool:
 HANDLERS: list[tuple[Callable[[Any], bool], str]] = [
     (lambda t: isinstance(t, QuerySet), "queryset"),
     (lambda t: isclass(t) and issubclass(t, View), "cbv"),
-    (lambda t: isclass(t) and _is_drf_serializer(t), "serializer"),
+    (lambda t: _BaseSerializer is not None and isclass(t) and issubclass(t, _BaseSerializer), "serializer"),
     (lambda t: isinstance(t, Model), "model_instance"),
     (lambda t: callable(t) and _has_request_param(t), "view"),
     (lambda t: callable(t), "function"),

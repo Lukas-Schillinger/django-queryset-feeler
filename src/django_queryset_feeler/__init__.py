@@ -29,10 +29,13 @@ if TYPE_CHECKING:
 def _is_notebook() -> bool:
     """Detect if code is running in a Jupyter notebook."""
     try:
-        shell = get_ipython().__class__.__name__  # type: ignore[name-defined]
-    except NameError:
+        from IPython import get_ipython
+    except ImportError:
         return False
-    return shell == "ZMQInteractiveShell"
+    shell = get_ipython()
+    if shell is None:
+        return False
+    return shell.__class__.__name__ == "ZMQInteractiveShell"
 
 
 def _format_sql(sql: str) -> str:
